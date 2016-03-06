@@ -134,4 +134,42 @@ c5;
 ```
 
 
+#### Vantagens de usar Threads
+- Executar multiplas atividades ao mesmo tempo
+- Fácil criação e destruição comparado a processos (não ter que copiar toda área de compartilhamento deixa-as mais leve)
+- Compartilhamento de dados
+- Melhor desempenho
+- Útil em sistema multiprocessados
 
+#### Quando paralelizar?
+Para paralelizar um algoritmo é necessário que hajam partes independentes nele, ou seja, o conjunto de escrita/leitura de cada parte do algoritmo tem que ser **disjunto** do conjunto de escrita/leitura da outra parte.
+
+### Lidando com variáveis compartilhadas
+Quantos estados possíveis o seguinte programa pode ter?
+```
+int x = 4
+co x++;
+// x = 1;
+oc
+
+  |--t1--> (t1-1)[eax <- x] -> (t1-2)[eax + 1] -> (t1-3)[x <- eax]
+x=4
+  |--t2--> (t2-1)[x <- 1]
+  
+//Existe 4 comandos distintos, podendo gerar os seguintes históricos de execução:
+// A => (t2-1), (t1-1), (t1-2), (t1-3) x == 2
+// B => (t1-1), (t2-1), (t1-2), (t1-3) x == 5
+// C => (t1-1), (t1-2), (t2-1), (t1-3) x == 5
+// A => (t1-1), (t1-2), (t1-3), (t2-1) x == 1
+
+//Quatro diferentes históricos e 3 diferentes respostas
+```
+
+Cada comando é uma **ação atômica**, uma sequência indivisível de transições de estados. A granularidade das operações será baixa quando for sobre instruções de máquina, e alta quando for feita sobre diversas instruções de máquina(seção crítica).
+
+A execução concorrente de vários processos serializa-se em diversos comandos executados pelo processador, um por vez. Essa serialização pode variar de uma execução para outra, fazendo com que esse fenômeno seja não determinístico.
+
+#### Quais são as saídas para isso?
+- Teste e depuração: Executar o programa para um número limitado de cenários e verificar o resultado.
+- Análise exaustiva: Examinar todas as possíveis histórias de execução(n*m!/(m!)^n combinações, onde n é o número de processos e m as ações atômicas, sem contar os condicionais).
+- Análie abstrata: Verificação formal usando lógica.
