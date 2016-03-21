@@ -173,3 +173,53 @@ A execução concorrente de vários processos serializa-se em diversos comandos 
 - Teste e depuração: Executar o programa para um número limitado de cenários e verificar o resultado.
 - Análise exaustiva: Examinar todas as possíveis histórias de execução(n*m!/(m!)^n combinações, onde n é o número de processos e m as ações atômicas, sem contar os condicionais).
 - Análie abstrata: Verificação formal usando lógica.
+
+### Função da sincronização
+A sincronização se faz útil pelos seguintes motivos:
+- Restringir possíveis histórias indesejadas
+- Preserva a dependência entre os processos
+
+A sincronização pode ser obtida através da **exclusão mútua** ou da **sincronização por condição**
+
+```
+//Exemplo paralelizado de busca de valor máximo em um vetor.
+//Esse programa é peculiar por criar n threads, uma para cada posição do vetor,
+//todos terão que verificar a condição do if duas vezes e isso transforma
+//a execução em uma grande fila serial.
+int m = 0
+co [i = 0 to n-1] {
+  if (a[i] > m)
+    <if (a[i] > m)
+      m = a[i];>
+}
+write(m);
+```
+
+### Diferentes propriedades de um programa concorrente
+
+- **Safety:** O programa nunca entra em um estado **ruim**
+- **Liveness:** O programa eventualmente entra em um estado **bom**
+
+Podemos entender como estado ruim dois programas estarem na mesma sessão crítica ao mesmo tempo, ou um deadlock. Enquanto o estado bom do liveness indica que cada histórico é finito e que uma hora o programa poderá entrar em sua sessão crítica.
+
+###Corretudo
+- **Parcial:** O programa termina
+- **Total:** O programa termina e dá a resposta correta
+
+###Referência Crítica
+Referência a uma variável que é(ou pode) ser alterada por outro processo. Quando não houver referência crítica entre dois processos **a execução parecerá atômica**. Exemplo:
+```
+int x = 0, y = 0;
+co {
+  x = x + 1
+  //
+  y = y + 1
+}
+```
+###Propriedade 'no máximo uma vez' (PNMUV)
+Uma atribuição do tipo **x = e** satisfaz a **PNMUV** se:
+- **e** contem no máximo 1 referência crífica e **x** não é lido por nenhum outro processo, ou
+- **e** não tem referências críticas, e neste caso, **x** pode ser lido
+
+### Granularidade Alta
+Teremos granularidade alta se a propriedade **PNMUV** não acontecer e quisermos a execução atômica de vários comandos juntos e que sua sequência pareça indivisível. **Usamos a sincronização para construir atomicidade de alta granularidade.**
