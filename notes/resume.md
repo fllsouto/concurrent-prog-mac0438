@@ -209,17 +209,197 @@ Podemos entender como estado ruim dois programas estarem na mesma sessão críti
 ###Referência Crítica
 Referência a uma variável que é(ou pode) ser alterada por outro processo. Quando não houver referência crítica entre dois processos **a execução parecerá atômica**. Exemplo:
 ```
+//Sem referência crítica, satisfaz o PNMUV
 int x = 0, y = 0;
 co {
   x = x + 1
   //
   y = y + 1
 }
+
+(x,y) = (1,1)
+
+//Referência crítica em y, satisfaz o PNMUV
+int x = 0, y = 0;
+co {
+  x = y + 1
+  //
+  y = y + 1
+}
+
+(x,y) = [(1,1),(2,1)]
+
+//Referência crítica em y e x, não satisfaz a PNMUV por conter duas referências
+//críticas e diferentes processos alterarem seus valores.
+int x = 0, y = 0;
+co {
+  x = x + 1
+  //
+  y = x + 1
+}
+(x,y) = [(1,1),(2,1),(1,2)]
 ```
 ###Propriedade 'no máximo uma vez' (PNMUV)
 Uma atribuição do tipo **x = e** satisfaz a **PNMUV** se:
-- **e** contem no máximo 1 referência crífica e **x** não é lido por nenhum outro processo, ou
+- **e** contem no máximo 1 referência crítica e **x** não é lido por nenhum outro processo, ou
 - **e** não tem referências críticas, e neste caso, **x** pode ser lido
+
+
 
 ### Granularidade Alta
 Teremos granularidade alta se a propriedade **PNMUV** não acontecer e quisermos a execução atômica de vários comandos juntos e que sua sequência pareça indivisível. **Usamos a sincronização para construir atomicidade de alta granularidade.**
+
+
+## Atômicidade e Sincronização
+Tipos básicos como int, char e short são armazenados, lidos e escritos de forma atômica, seu tamanho é menor ou igual ao barramento de dados.
+
+Quando temos alta granularidade entre os comandos processamos de sincronização para construir atômicidade.
+
+```
+Alta Granularidade + Sincronização => Atomicidade
+```
+
+### Await
+
+Espera a condição B ser verdade, então executa S atômicamente. Essa espera pode ser um busy-waiting ou não. É garantido que **B será verdadeiro** para que S seja executado e **é garantido que S termine**.
+```
+<await (B) S;>
+//Ex
+<await (s > 0) s = s - 1>
+//Podemos usar o await como uma barreira sem sessão crítica
+<await (count > 0);>
+
+<await (B)> === while(not B) //while usa busy-waiting
+```
+
+### Produtor-Consumidor sincronizado
+
+```
+int buf, p = 0, c = 0;
+
+process Produtor {
+  int a[MAX] = { ... };
+  while (p < MAX) {
+    <await (p == c);> //Buffer vazio
+    buf = a[p];
+    p = p + 1;
+  }
+}
+
+process Consumidor {
+  int b[MAX] = { ... };
+  while (p < MAX) {
+    <await (p > c);>
+    b[p] = buf;
+    c = c + 1;
+  }
+}
+
+//Nesse código a cada item produzido o consumidor irá consumir, enquanto isso o produtor fica travado
+// Ambas condições B respeitam o PNMUV pois são referências críticas mas seus próprios processos que alteram suas variáveis críticas e "não existe atribuição", apenas comparação. Com isso eu posso substituir:
+
+<await (p > c);> == while (!(p > c))
+<await (p == c);> == while (!(p == c))
+```
+
+## Sistema lógico formal
+Um sistema lógico formal consiste em regras definidas em termos de:
+- Um conjunto de simbolos
+- Um conjunto de formulas construídas a partir dos símbolos
+- Um conjunto de formulas que são admitidas como verdadeiras(axiomas)
+- Regras de inferência, que especificam como derivar novas fórmulas de axiomas e outras formulas
+
+```
+H1, H2, ... Hn
+--------------
+	  C
+//Se todas hipóteses H forem verdadeiras então C também será
+```
+
+### Segurança e Vitalidade
+
+#### Propriedades de Segurança
+- Uma propriedade P será garantida sse P for verdade em todos os históricos do programa concorrente
+- O programa nunca entra em um estado "ruim", ou seja, um deadlock ou disputa por uma sessão crítica.
+
+#### Propriedades de Vitalidade
+- Uma propriedade P será garantida se P for verdade em algum dos históricos do programa concorrente
+- O programa eventualmente entra em um estado "bom", ou seja, cada histórico e finito e termina
+
+Exemplo
+
+```
+Segurança
+- Exclusão mútua em regiões críticas (é ruim quando dois processos estão na região crítica ao mesmo tempo)
+- Ausência de deadlock (sempre esperar por uma condição que nunca ocorre)
+
+Vitalidade
+- Termino do programa (cada histórico é finito)
+- Todo processo consegue entrar na sua sessão crítica
+
+Corretude parcial : O estado do programa é correto se o programa terminar (propriedade de Vitalidade)
+Termino : Todo laço e chamada à procedimento termina (Propriedade de Segurança)
+
+Corretudo total : Corretudo parcial + Termino (Termina e da a resposta correta)
+```
+
+#### Provando Segurança
+Para provar segurança precisamos analisar os estados do programa, caso uma propriedade de segurança não seja satisfeita o programa deve entrar em um estado "ruim" que não satisfaz a propriedade. Um exemplo disso é uma falha na exclusão mutua, possibilitando que dois programas executem a mesma sessão crítica ou deadlock entre processos, no qual um deles espera infinitamente por um recurso.
+Uma das formas de provar segurança é a **exclusão de configurações**:
+
+```
+co #processo 1
+	;
+    {pre(S1)} S1;
+
+// #processo 2
+	;
+    {pre(S2)} S2;
+
+//pre(Si) são predicados que tem valor verdade antes da execução de Si
+//Se "pre(S1) ^ pre(S2) == falso" então os dois processos não irão executar concorrentemente, já que falso não caracteriza um estado do programa. Esse "estado" seria um estado ruim
+//Pegando como exemplo o produtor-consumidor:
+//(p > c) ^ (p == c) esse estado é falso para qualquer configuração, portanto o
+//programa é seguro
+```
+
+### Vitalidade e Justiça
+A propriedade de vitalidade está ligada com o conceito de justiça. Ter justiça em um escalonamento é garantir que um processo tenha chance de progredir na sua execução, independente das ações de outro processos.
+- **Ação atômica elegível**: é a próxima ação atômica que um processo poderá executar
+- **Ação atômica incondicional**: é próxima ação atômica que não possui uma condição de atraso
+
+```
+bool continue = true;
+co
+	while (continue); //p1
+//
+	continue = false; //q1
+oc
+```
+
+Três casos:
+- 1 processador e escalonamento não-preemptivo. Resulta em não término do programa se p1 rodar primeiro, portanto não é bom e não tem vitalidade
+- 1 processador e escalonador Round-Robin. Resulta que p1 e q1 terão uma fatia da execução, garantindo que ambos terminem e que a propriedade de vitalidade seja verdadeira
+- 2 processadores alocados a ambos processos. Resulta no término e na vitalidade
+
+Uma política de escalonamento segue **justiça incondicional** se cada ação atômica incondicional elegível é executada em algum momento. O RR e execução paralela são desse tipo.
+
+Uma política de escalonamento segue **justiça fraca** se:
+- Segue justiça incondicional
+- Dado que tenho uma ação atômica para ser executada ```<await (B) S;>``` e que  **p** é o processo que espera por **B**, se **B** se tornar verdade ela deve se manter até que **p** seja escalonado e possa executar sua ação atômica até o final sem sofrer preempção.
+
+Pensando assim round-robing não necessariamente respeita isso, pois **B** pode se tornar verdade no final do time-slice de **p**, sua condição será verdade mas o escalonador irá interromper que a sessão crítica de **p** execute.
+
+Uma política de escalonamento segue **justiça forte** se:
+- Segue justiça incondicional
+- Toda ação atômica condicional elegível é eventualmente executada, dado que a condição é verdade um número finito de vezes em cada histórico de execução, ou seja se uma condição se tornar verdade e um processo espera por ela este com certeza irá executar. 
+Exemplo:
+```
+bool continue = true, try = false;
+co
+	while (continue) {try = true; try = false;} //p1
+	//<await (try) continue = false;> //q1
+oc
+```
+
+Na **justiça forte** o programa eventualmente terminará pois em alguma execução q1 conseguirá executar pois _try_ é verdadeiro. Enquanto que na **justiça fraca** q1 pode esperar infinitamente por _try_ verdadeiro, levando o programa a não terminar.
