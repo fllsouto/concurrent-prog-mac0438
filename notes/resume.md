@@ -233,7 +233,7 @@ co {
 //críticas e diferentes processos alterarem seus valores.
 int x = 0, y = 0;
 co {
-  x = x + 1
+  x = y + 1
   //
   y = x + 1
 }
@@ -403,3 +403,55 @@ oc
 ```
 
 Na **justiça forte** o programa eventualmente terminará pois em alguma execução q1 conseguirá executar pois _try_ é verdadeiro. Enquanto que na **justiça fraca** q1 pode esperar infinitamente por _try_ verdadeiro, levando o programa a não terminar.
+
+### O Problema da seção crítica
+N processos executam uma seção de código crítica e uma seção não crítica. Um processo que obtem acesso à sessão crítica, cumprirá as suas atividades então sairá. Uma solução de seção crítica precisa respeitar 4 propriedades:
+- Exclusão mútua
+- Ausência de deadlock (livelock)
+- Ausência de espera desnecessária
+- Entrada garantida
+
+Os três primeiros são propriedades de segurança e o ultimo de vitalidade.
+
+Um artifício útil para travas é o uso de um spin lock:
+```
+while(true){
+	<await (!lock) lock = true;>
+	seção crítica
+	lock = false;
+	seção não crítica
+}
+```
+
+É possível utilizar apenas uma varíavel para travar n processos. A maioria dos processadores modernos implementa em seu hardware algo conhecido com **TS(test-and-set)**
+
+```
+<await (lock == false) lock = true;>
+
+bool TS(bool lock) {
+	<
+    bool initial = lock
+    lock = true;
+    return initial;
+    >
+}
+
+lock = false
+TS(lock) => retorna false e lock == true
+lock = false
+```
+O problema de utilizar **Spin-Locks** é que precisamos de um escalonador que pratique a **Justiça forte**, o que é impraticável. Para contornar isso precisamos de um escalonador de exerça justiça fraca e não seja prejudicial a todos os processos. Além disso não temos um controle fino de quem entra na seção crítica, o mesmo processo pode executa-la repetidas vezes.
+
+### Implementando o await()
+Qualquer solução para a seção crítica pode ser utilizado para implementar a ação atômica incondicional **<S;>**.
+```
+<await (B) S;
+Protocolo de entrada
+while (!B) {
+	Protocolo de saída
+    Protocolo de entrada
+}
+S;
+Protocolo de saída
+```
+
